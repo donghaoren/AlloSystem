@@ -112,7 +112,7 @@ static const char * fCube = AL_STRINGIFY(
 	void main (void){
 		// ray location (calibration space):
 		vec3 v = normalize(texture2D(pixelMap, T).rgb);
-		vec4 rgba = textureCube(cubeMap, v).rgb;
+		vec4 rgba = textureCube(cubeMap, v).rgba;
 		rgba *= rgba.a;
 		// index into cubemap:
 		vec3 rgb = rgba.rgb * texture2D(alphaMap, T).rgb;
