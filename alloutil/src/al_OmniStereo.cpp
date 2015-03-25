@@ -1162,23 +1162,6 @@ void OmniStereo::draw(const Lens& lens, const Pose& pose, const Viewport& vp) {
 
 		gl.error("OmniStereo cube draw begin");
 
-<<<<<<< HEAD
-		mCubeProgram.begin();
-		glActiveTexture(GL_TEXTURE0);
-		glEnable(GL_TEXTURE_CUBE_MAP);
-
-		gl.error("OmniStereo cube drawStereo begin");
-
-		drawStereo<&OmniStereo::drawEye>(lens, pose, viewport);
-
-		gl.error("OmniStereo cube drawStereo end");
-
-		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-		glDisable(GL_TEXTURE_CUBE_MAP);
-
-		mCubeProgram.end();
-		gl.error("OmniStereo cube draw end");
-=======
 		if(mMode == ANAGLYPH_BLEND) {
 			mCubeAnaglyphProgram.begin();
 			glActiveTexture(GL_TEXTURE3);
@@ -1220,7 +1203,6 @@ void OmniStereo::draw(const Lens& lens, const Pose& pose, const Viewport& vp) {
 			mCubeProgram.end();
 			gl.error("OmniStereo cube draw end");
 		}
->>>>>>> 160cef9
 
 		p.blend().unbind(2);
 		p.warp().unbind(1);
