@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8)
 project (Allocore)
 
-message("==== Configuring allocore.")
+message(STATUS "==== Configuring allocore.")
 
 # Allocore Library
 list(APPEND ALLOCORE_SRC
@@ -13,12 +13,14 @@ list(APPEND ALLOCORE_SRC
   src/spatial/al_HashSpace.cpp
   src/spatial/al_Pose.cpp
   src/system/al_Info.cpp
+  src/system/al_PeriodicThread.cpp
   src/system/al_Printing.cpp
   src/system/al_Watcher.cpp
   src/types/al_Array.cpp
   src/types/al_Array_C.c
   src/types/al_Color.cpp
-  src/types/al_MsgQueue.cpp)
+  src/types/al_MsgQueue.cpp
+)
 
 list(APPEND ALLOCORE_HEADERS
     allocore/al_Allocore.hpp
@@ -151,11 +153,9 @@ add_library(${ALLOCORE_LIB} ${ALLOCORE_SRC} ${ALLOCORE_HEADERS})
 
 # Copy headers to build directory (only if directory does not exist)
 foreach(header ${ALLOCORE_HEADERS})
-    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/build/include/${header}") # Don't copy if exists, otherwise the copy forces a full rebuild.
-        execute_process(COMMAND ${CMAKE_COMMAND} -E
-                        copy ${header} ${CMAKE_SOURCE_DIR}/build/include/${header}
-                        WORKING_DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR})
-    endif()
+    execute_process(COMMAND ${CMAKE_COMMAND} -E
+                    copy_if_different ${header} ${CMAKE_SOURCE_DIR}/build/include/${header}
+                    WORKING_DIRECTORY  ${CMAKE_CURRENT_SOURCE_DIR})
 endforeach()
 
 # Write dummy headers
@@ -167,7 +167,7 @@ foreach(HEADER_INFO ${ALLOCORE_DUMMY_HEADERS})
 
     set(DUMMY_HEADER_TEXT "#error \"ERROR: Header not supported. Dependency '${dependency}' not met.\"\n")
     file(WRITE "${CMAKE_SOURCE_DIR}/build/include/${header}" ${DUMMY_HEADER_TEXT})
-    message("Writing dummy HEADER_INFO: ${header} --- ${dependency} --- ${HEADER_PARTS}")
+    message("Writing dummy header: ${header} ---- Unmet dependency: ${dependency}")
     list(APPEND ALLOCORE_HEADERS "${CMAKE_SOURCE_DIR}/build/include/${header}")
 endforeach()
 
@@ -201,7 +201,7 @@ if(BUILD_EXAMPLES)
     foreach(example ${EXAMPLE_FILES})
     if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/examples/${dir}/flags.txt)
       file(READ ${CMAKE_CURRENT_SOURCE_DIR}/examples/${dir}/flags.txt EXTRA_COMPILER_FLAGS)
-      message("NOTE: Using additional flags from /examples/${dir}/flags.txt: " ${EXTRA_COMPILER_FLAGS})
+      message(STATUS "NOTE: Using additional flags from /examples/${dir}/flags.txt: " ${EXTRA_COMPILER_FLAGS})
       STRING(REGEX REPLACE "[\r\n]" " " EXTRA_COMPILER_FLAGS "${EXTRA_COMPILER_FLAGS}")
     endif()
     get_filename_component(EXAMPLE_NAME ${example} NAME_WE) # Get name w/o extension

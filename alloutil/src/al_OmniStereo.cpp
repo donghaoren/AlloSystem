@@ -112,10 +112,66 @@ static const char * fCube = AL_STRINGIFY(
 	void main (void){
 		// ray location (calibration space):
 		vec3 v = normalize(texture2D(pixelMap, T).rgb);
-		vec4 rgba = textureCube(cubeMap, v).rgba;
-		rgba *= rgba.a;
+
 		// index into cubemap:
-		vec3 rgb = rgba.rgb * texture2D(alphaMap, T).rgb;
+		vec3 rgb = textureCube(cubeMap, v).rgb * texture2D(alphaMap, T).rgb;
+
+		gl_FragColor = vec4(rgb, 1.);
+	}
+);
+
+// Implements the method in http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
+// Conversion of a Stereo Pair to Anaglyph with the Least-Squares Projection Method
+#pragma mark CubeAnaglyph GLSL
+static const char * fCubeAnaglyph = AL_STRINGIFY(
+	uniform sampler2D pixelMap;
+	uniform sampler2D alphaMap;
+	uniform samplerCube cubeMapLeft;
+	uniform samplerCube cubeMapRight;
+
+	varying vec2 T;
+
+	float srgb_gamma(float s) {
+		if(s < 0.04045) return s / 12.92;
+		else {
+			return pow((s + 0.055) / 1.055, 2.4);
+		}
+	}
+
+	vec3 srgb_gamma3(vec3 s) {
+		return vec3(srgb_gamma(s.r), srgb_gamma(s.g), srgb_gamma(s.b));
+	}
+
+	float srgb_gamma_inv(float s) {
+		if(s <= 0.0031308) return s * 12.92;
+		else {
+			return 1.055 * pow(s, 0.41666) - 0.055;
+		}
+	}
+
+	vec3 srgb_gamma_inv3(vec3 s) {
+		return vec3(srgb_gamma_inv(s.r), srgb_gamma_inv(s.g), srgb_gamma_inv(s.b));
+	}
+
+	void main (void){
+		// ray location (calibration space):
+		vec3 v = normalize(texture2D(pixelMap, T).rgb);
+
+		// index into cubemap:
+		vec3 l_rgb = textureCube(cubeMapLeft, v).rgb;
+		vec3 r_rgb = textureCube(cubeMapRight, v).rgb;
+		vec3 IL = srgb_gamma3(l_rgb);
+		vec3 IR = srgb_gamma3(r_rgb);
+
+		vec3 rgb;
+		rgb.r = clamp(dot(vec3( 0.437,  0.449,  0.164), IL), 0.0, 1.0) + clamp(dot(vec3(-0.011, -0.032, -0.007), IR), 0.0, 1.0);
+		rgb.g = clamp(dot(vec3(-0.062, -0.062, -0.024), IL), 0.0, 1.0) + clamp(dot(vec3( 0.377,  0.761,  0.009), IR), 0.0, 1.0);
+		rgb.b = clamp(dot(vec3(-0.048, -0.050, -0.017), IL), 0.0, 1.0) + clamp(dot(vec3(-0.026, -0.093,  1.234), IR), 0.0, 1.0);
+
+		rgb = srgb_gamma_inv3(rgb);
+
+		rgb *= texture2D(alphaMap, T).rgb;
+
 		gl_FragColor = vec4(rgb, 1.);
 	}
 );
@@ -806,6 +862,24 @@ void OmniStereo::onCreate() {
 	mCubeProgram.printLog();
 	Graphics::error("cube program onCreate");
 
+	Shader cubeAnaglyphV, cubeAnaglyphF;
+	cubeAnaglyphV.source(vGeneric, Shader::VERTEX).compile();
+	cubeAnaglyphF.source(fCubeAnaglyph, Shader::FRAGMENT).compile();
+	mCubeAnaglyphProgram.attach(cubeAnaglyphV).attach(cubeAnaglyphF);
+	mCubeAnaglyphProgram.link(false);	// false means do not validate
+	// set uniforms before validating to prevent validation error
+	mCubeAnaglyphProgram.begin();
+		mCubeAnaglyphProgram.uniform("alphaMap", 2);
+		mCubeAnaglyphProgram.uniform("pixelMap", 1);
+		mCubeAnaglyphProgram.uniform("cubeMapLeft", 0);
+		mCubeAnaglyphProgram.uniform("cubeMapRight", 3);
+	mCubeAnaglyphProgram.end();
+	mCubeAnaglyphProgram.validate();
+	cubeAnaglyphV.printLog();
+	cubeAnaglyphF.printLog();
+	mCubeAnaglyphProgram.printLog();
+	Graphics::error("cube program onCreate");
+
 	Shader sphereV, sphereF;
 	sphereV.source(vGeneric, Shader::VERTEX).compile();
 	sphereF.source(fSphere, Shader::FRAGMENT).compile();
@@ -977,6 +1051,7 @@ void OmniStereo::capture(OmniStereo::Drawable& drawable, const Lens& lens, const
 			gl.clearColor(mClearColor);
 			gl.depthTesting(1);
 			gl.depthMask(1);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			drawable.onDrawOmni(*this);
 		}
@@ -1087,6 +1162,7 @@ void OmniStereo::draw(const Lens& lens, const Pose& pose, const Viewport& vp) {
 
 		gl.error("OmniStereo cube draw begin");
 
+<<<<<<< HEAD
 		mCubeProgram.begin();
 		glActiveTexture(GL_TEXTURE0);
 		glEnable(GL_TEXTURE_CUBE_MAP);
@@ -1102,6 +1178,49 @@ void OmniStereo::draw(const Lens& lens, const Pose& pose, const Viewport& vp) {
 
 		mCubeProgram.end();
 		gl.error("OmniStereo cube draw end");
+=======
+		if(mMode == ANAGLYPH_BLEND) {
+			mCubeAnaglyphProgram.begin();
+			glActiveTexture(GL_TEXTURE3);
+			glEnable(GL_TEXTURE_CUBE_MAP);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, mTex[1]);
+			glActiveTexture(GL_TEXTURE0);
+			glEnable(GL_TEXTURE_CUBE_MAP);
+
+			gl.error("OmniStereo cube drawStereo begin");
+
+			drawStereo<&OmniStereo::drawEye>(lens, pose, viewport);
+
+			gl.error("OmniStereo cube drawStereo end");
+
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+			glDisable(GL_TEXTURE_CUBE_MAP);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+			glDisable(GL_TEXTURE_CUBE_MAP);
+
+			mCubeAnaglyphProgram.end();
+			gl.error("OmniStereo cube draw end");
+		} else {
+			mCubeProgram.begin();
+			glActiveTexture(GL_TEXTURE0);
+			glEnable(GL_TEXTURE_CUBE_MAP);
+
+			gl.error("OmniStereo cube drawStereo begin");
+
+			drawStereo<&OmniStereo::drawEye>(lens, pose, viewport);
+
+			gl.error("OmniStereo cube drawStereo end");
+
+			glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+			glDisable(GL_TEXTURE_CUBE_MAP);
+
+			mCubeProgram.end();
+			gl.error("OmniStereo cube draw end");
+		}
+>>>>>>> 160cef9
 
 		p.blend().unbind(2);
 		p.warp().unbind(1);

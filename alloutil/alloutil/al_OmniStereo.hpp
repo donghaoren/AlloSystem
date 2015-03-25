@@ -154,7 +154,8 @@ class OmniStereo {
     DUAL,       /**< Dual side-by-side stereo */
     ANAGLYPH,   /**< Red (left eye) / cyan (right eye) stereo */
     LEFT_EYE,   /**< Left eye only */
-    RIGHT_EYE   /**< Right eye only */
+    RIGHT_EYE,   /**< Right eye only */
+    ANAGLYPH_BLEND,   /* custom blend anaglyph */
   };
 
   /// Anaglyph mode
@@ -179,7 +180,7 @@ class OmniStereo {
   };
 
   // @resolution sets the resolution of the cube textures / render buffers:
-  OmniStereo(unsigned resolution = 1024, bool useMipMaps = true);
+  OmniStereo(unsigned resolution = 2048, bool useMipMaps = true);
 
   // @resolution should be a power of 2
   OmniStereo& resolution(unsigned resolution);
@@ -298,7 +299,7 @@ class OmniStereo {
   GLuint mTex[2];  // the cube map textures
   GLuint mFbo;
   GLuint mRbo;  // TODO: alternative depth cube-map texture option?
-  ShaderProgram mCubeProgram, mSphereProgram, mWarpProgram, mDemoProgram;
+  ShaderProgram mCubeProgram, mCubeAnaglyphProgram, mSphereProgram, mWarpProgram, mDemoProgram;
   Mesh mQuad;
 
   Graphics gl;
@@ -407,6 +408,8 @@ inline void OmniStereo::drawStereo(const Lens& lens, const Pose& pose,
       gl.clear(gl.DEPTH_BUFFER_BIT);
       (this->*F)(pose, -eye);
 
+      glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
       break;
 
     case RIGHT_EYE:
@@ -418,6 +421,7 @@ inline void OmniStereo::drawStereo(const Lens& lens, const Pose& pose,
       break;
 
     case MONO:
+    case ANAGLYPH_BLEND:
     default:
       (this->*F)(pose, 0);
       break;

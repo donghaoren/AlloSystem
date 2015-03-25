@@ -14,7 +14,7 @@ set(PORTAUDIO_HEADERS
 )
 
 if(PORTAUDIO_LIBRARY AND PORTAUDIO_INCLUDE_DIR)
-message("Building Portaudio module.")
+message(STATUS "Building Portaudio module.")
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   find_library(AUDIOUNIT_FM AudioUnit)
@@ -54,4 +54,4 @@ else()
     endforeach()
     list(APPEND ALLOCORE_DUMMY_HEADERS ${PORTAUDIO_DUMMY_HEADER_INFO})
 
-endif(PORTAUDIO_LIBRARY)
+endif(PORTAUDIO_LIBRARY AND PORTAUDIO_INCLUDE_DIR)

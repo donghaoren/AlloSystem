@@ -100,7 +100,9 @@ void OutputMaster::setBassManagementFreq(double frequency)
 
 void OutputMaster::setBassManagementMode(bass_mgmt_mode_t mode)
 {
-	m_BassManagementMode = mode;
+	if (mode >= 0 && mode < BASSMODE_COUNT) {
+		m_BassManagementMode = mode;
+	}
 }
 
 void OutputMaster::setSwIndeces(int i1, int i2, int i3, int i4)
@@ -255,6 +257,16 @@ void OutputMaster::setMeterupdateFreqTimestamped(al_sec until, double freq)
 	setMeterUpdateFreq(freq);
 }
 
+void OutputMaster::setBassManagementFreqTimestamped(al_sec until, double freq)
+{
+	setBassManagementFreq(freq);
+}
+
+void OutputMaster::setBassManagementModeTimestamped(al_sec until, int mode)
+{
+	setBassManagementMode((bass_mgmt_mode_t) mode);
+}
+
 int OutputMaster::chanIsSubwoofer(int index)
 {
 	int i;
@@ -402,6 +414,28 @@ void OutputMaster::OSCHandler::onMessage(osc::Message &m)
 												(double) freq);
 		} else {
 			std::cerr << "Alloaudio: Wrong type tags for /Alloaudio/meter_update_freq: "
+					 << m.typeTags() << std::endl;
+		}
+	} else if (m.addressPattern() == "/Alloaudio/bass_management_mode") {
+		if (m.typeTags() == "i") {
+			int mode;
+			m >> mode;
+			outputmaster->m_parameterQueue.send(outputmaster->m_parameterQueue.now(),
+												outputmaster, &OutputMaster::setBassManagementModeTimestamped,
+												(int) mode);
+		} else {
+			std::cerr << "Alloaudio: Wrong type tags for /Alloaudio/bass_management_mode: "
+					 << m.typeTags() << std::endl;
+		}
+	} else if (m.addressPattern() == "/Alloaudio/bass_management_freq") {
+		if (m.typeTags() == "f") {
+			float freq;
+			m >> freq;
+			outputmaster->m_parameterQueue.send(outputmaster->m_parameterQueue.now(),
+												outputmaster, &OutputMaster::setBassManagementFreqTimestamped,
+												(double) freq);
+		} else {
+			std::cerr << "Alloaudio: Wrong type tags for /Alloaudio/bass_management_freq: "
 					 << m.typeTags() << std::endl;
 		}
 	} else {
