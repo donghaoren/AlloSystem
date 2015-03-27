@@ -114,7 +114,9 @@ static const char * fCube = AL_STRINGIFY(
 		vec3 v = normalize(texture2D(pixelMap, T).rgb);
 
 		// index into cubemap:
-		vec3 rgb = textureCube(cubeMap, v).rgb * texture2D(alphaMap, T).rgb;
+		vec4 color = textureCube(cubeMap, v);
+		color.rgb *= color.a;
+		vec3 rgb = color.rgb * texture2D(alphaMap, T).rgb;
 
 		gl_FragColor = vec4(rgb, 1.);
 	}
@@ -158,8 +160,10 @@ static const char * fCubeAnaglyph = AL_STRINGIFY(
 		vec3 v = normalize(texture2D(pixelMap, T).rgb);
 
 		// index into cubemap:
-		vec3 l_rgb = textureCube(cubeMapLeft, v).rgb;
-		vec3 r_rgb = textureCube(cubeMapRight, v).rgb;
+		vec4 l_rgba = textureCube(cubeMapLeft, v).rgba;
+		vec4 r_rgba = textureCube(cubeMapRight, v).rgba;
+		vec3 l_rgb = l_rgba.rgb * r_rgba.a;
+		vec3 r_rgb = r_rgba.rgb * r_rgba.a;
 		vec3 IL = srgb_gamma3(l_rgb);
 		vec3 IR = srgb_gamma3(r_rgb);
 
