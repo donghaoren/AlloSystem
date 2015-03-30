@@ -382,7 +382,7 @@ inline void OmniStereo::drawStereo(const Lens& lens, const Pose& pose,
         default:
           glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
       }
-      (this->*F)(pose, eye);
+      (this->*F)(pose, -eye);
 
       switch (mAnaglyphMode) {
         case RED_BLUE:
@@ -406,7 +406,7 @@ inline void OmniStereo::drawStereo(const Lens& lens, const Pose& pose,
       gl.depthMask(1);
       gl.depthTesting(1);
       gl.clear(gl.DEPTH_BUFFER_BIT);
-      (this->*F)(pose, -eye);
+      (this->*F)(pose, eye);
 
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
