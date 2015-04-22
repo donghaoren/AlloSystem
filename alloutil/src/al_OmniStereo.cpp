@@ -122,6 +122,31 @@ static const char * fCube = AL_STRINGIFY(
 	}
 );
 
+static const char * fCubeDepth = AL_STRINGIFY(
+	uniform sampler2D pixelMap;
+	uniform sampler2D alphaMap;
+	uniform samplerCube cubeMap;
+	uniform float omni_near;
+	uniform float omni_far;
+
+	varying vec2 T;
+
+	void main (void){
+		// ray location (calibration space):
+		vec3 v = normalize(texture2D(pixelMap, T).rgb);
+
+		// index into cubemap:
+		float depth = textureCube(cubeMap, v).r;
+		depth = 1.0 / omni_far / (omni_far / (omni_far - omni_near) - depth);
+		//color.rgb *= color.a;
+		if(T.x > 0.5) color.rgb = vec3(0.5, 0.5, 0.5);
+		else color.rgb = (color.rgb / 2.0 - vec3(0.5, 0.5, 0.5)) * 30.0 + vec3(0.5, 0.5, 0.5);
+		vec3 rgb = color.rgb * texture2D(alphaMap, T).rgb;
+
+		gl_FragColor = vec4(rgb, 1.);
+	}
+);
+
 // Implements the method in http://www.site.uottawa.ca/~edubois/anaglyph/LeastSquaresHowToPhotoshop.pdf
 // Conversion of a Stereo Pair to Anaglyph with the Least-Squares Projection Method
 #pragma mark CubeAnaglyph GLSL
@@ -975,19 +1000,59 @@ void OmniStereo::onCreate() {
 		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 		Graphics::error("creating cubemap texture");
 	}
+	glGenTextures(2, mTexDepth);
+	for (int i=0; i<2; i++) {
+		// create cubemap texture:
+		glBindTexture(GL_TEXTURE_CUBE_MAP, mTexDepth[i]);
+
+		// each cube face should clamp at texture edges:
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+		// filtering
+		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_DEPTH_TEXTURE_MODE, GL_INTENSITY);
+  		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+
+  		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_LEVEL, 0);
+
+		// TODO: verify?
+		// Domagoj also has:
+		glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR );
+		glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR );
+		glTexGeni( GL_R, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR );
+		float X[4] = { 1,0,0,0 };
+		float Y[4] = { 0,1,0,0 };
+		float Z[4] = { 0,0,1,0 };
+		glTexGenfv( GL_S, GL_OBJECT_PLANE, X );
+		glTexGenfv( GL_T, GL_OBJECT_PLANE, Y );
+		glTexGenfv( GL_R, GL_OBJECT_PLANE, Z );
+
+		// RGBA8 Cubemap texture, 24 bit depth texture, mResolution x mResolution
+		// NULL means reserve texture memory, but texels are undefined
+		for (int f=0; f<6; f++) {
+			glTexImage2D(
+				GL_TEXTURE_CUBE_MAP_POSITIVE_X+f,
+				0, GL_DEPTH_COMPONENT32,
+				mResolution, mResolution,
+				0, GL_DEPTH_COMPONENT, GL_FLOAT,
+				NULL);
+		}
+
+		// clean up:
+		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+		Graphics::error("creating cubemap depth texture");
+	}
 
 	// one FBO to rule them all...
 	glGenFramebuffers(1, &mFbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, mFbo);
 	//Attach one of the faces of the Cubemap texture to this FBO
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X, mTex[0], 0);
-
-	glGenRenderbuffers(1, &mRbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, mRbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, mResolution, mResolution);
-	// Attach depth buffer to FBO
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, mRbo);
-
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_CUBE_MAP_POSITIVE_X, mTexDepth[0], 0);
 	// ...and in the darkness bind them:
 	for (mFace=0; mFace<6; mFace++) {
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0+mFace, GL_TEXTURE_CUBE_MAP_POSITIVE_X+mFace, mTex[0], 0);
@@ -1045,12 +1110,19 @@ void OmniStereo::capture(OmniStereo::Drawable& drawable, const Lens& lens, const
 		mEyeParallax = eyeSep * (i-0.5);
 		for (mFace=0; mFace<6; mFace++) {
 
-			glDrawBuffer(GL_COLOR_ATTACHMENT0 + mFace);
+			glDrawBuffer(GL_COLOR_ATTACHMENT0);
 			glFramebufferTexture2D(
 				GL_FRAMEBUFFER,
-				GL_COLOR_ATTACHMENT0 + mFace,
+				GL_COLOR_ATTACHMENT0,
 				GL_TEXTURE_CUBE_MAP_POSITIVE_X + mFace,
 				mTex[i], 0);
+			glFramebufferTexture2D(
+				GL_FRAMEBUFFER,
+				GL_DEPTH_ATTACHMENT,
+				GL_TEXTURE_CUBE_MAP_POSITIVE_X + mFace,
+				mTexDepth[i], 0);
+
+			Graphics::error("set framebuffer");
 
 			gl.clearColor(mClearColor);
 			gl.depthTesting(1);
@@ -1058,10 +1130,12 @@ void OmniStereo::capture(OmniStereo::Drawable& drawable, const Lens& lens, const
 			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			drawable.onDrawOmni(*this);
+
 		}
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glDrawBuffer(GL_BACK);
 	glPopAttrib();
 	gl.popMatrix(gl.MODELVIEW);
 	gl.error("OmniStereo capture end");

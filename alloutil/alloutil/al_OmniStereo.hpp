@@ -251,6 +251,9 @@ class OmniStereo {
   GLuint texture() const { return mTex[0]; }
   GLuint textureLeft() const { return mTex[0]; }
   GLuint textureRight() const { return mTex[1]; }
+  GLuint textureDepth() const { return mTexDepth[0]; }
+  GLuint textureDepthLeft() const { return mTexDepth[0]; }
+  GLuint textureDepthRight() const { return mTexDepth[1]; }
 
   // the current face being rendered:
   int face() const { return mFace; }
@@ -280,23 +283,30 @@ class OmniStereo {
     }
   }
 
+  typedef void (OmniStereo::*DrawMethod)(const Pose& pose, double eye);
+  // Make these public.
+  template <DrawMethod F>
+  void drawStereo(const Lens& lens, const Pose& pose, const Viewport& viewport);
+
+  void drawEye(const Pose& pose, double eye);
+
  protected:
   // supports up to 4 warps/viewports
   Projection mProjections[4];
 
-  typedef void (OmniStereo::*DrawMethod)(const Pose& pose, double eye);
-  void drawEye(const Pose& pose, double eye);
+
+  //void drawEye(const Pose& pose, double eye);
   void drawQuadEye(const Pose& pose, double eye);
   void drawDemoEye(const Pose& pose, double eye);
 
-  template <DrawMethod F>
-  void drawStereo(const Lens& lens, const Pose& pose, const Viewport& viewport);
+
 
   void drawQuad();
 
   void capture_eye(GLuint& tex, OmniStereo::Drawable& drawable);
 
   GLuint mTex[2];  // the cube map textures
+  GLuint mTexDepth[2]; // donghao: the depth textures.
   GLuint mFbo;
   GLuint mRbo;  // TODO: alternative depth cube-map texture option?
   ShaderProgram mCubeProgram, mCubeAnaglyphProgram, mSphereProgram, mWarpProgram, mDemoProgram;
