@@ -289,6 +289,7 @@ class OmniStereo {
   void drawStereo(const Lens& lens, const Pose& pose, const Viewport& viewport);
 
   virtual void drawEye(const Pose& pose, double eye);
+  void drawEyeVirtual(const Pose& pose, double eye) { drawEye(pose, eye); }
 
  protected:
   // supports up to 4 warps/viewports
