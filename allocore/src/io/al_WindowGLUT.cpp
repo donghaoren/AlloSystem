@@ -567,7 +567,9 @@ void Window::implOnFrame(){
 	if(err[0]){
 		AL_WARN_ONCE("Error after rendering frame in window (id=%d): %s", winID, err);
 	}
-	glutSwapBuffers();
+	if(mShouldSwapBuffers) {
+		glutSwapBuffers();
+	}
 }
 
 
